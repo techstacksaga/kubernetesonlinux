@@ -1,0 +1,136 @@
+                                                                Kubernetes installation on RED HAT LINUX 7
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Prerequisite:
+-----------------
+
+Capcity and server pre configuration:
+
+Linux compatiable host.
+
+Master-Node : Minimum of 2GB of RAM and 2 core CPU required.
+Worker-Node : Minimum of 2Gb of RAM and 2 core CPU required.
+
+Network connectivity between all the master and worker node machines in a cluster.
+
+SWAP memory must be disabled.
+
+Ports must be enabled :
+
+Master Node or Control Plane node:
+
+6443 = Kubernetes API server
+2379-2380 = etcd server client API
+10250 = kubelet API
+10259 = kube Schedular
+10257 = kube controller manager
+
+Worker Node :
+
+10250 = kubelet API
+30000-32767 = NodePort Service
+************************************************************************************************************************************************************************
+To enable the port on the linux machine run the below commands with the port number:
+
+sudo firewall-cmd --zone=public --add-port=port_number/tcp --permanent
+
+sudo firewall-cmd --reload
+
+To check the status where the firewall enabled or not:
+
+sudo firewall-cmd --zone=public --list-all
+
+The above firewall port enablment  needs to be perfomred when you are installting k8's for production org's. If you want to practice you can disable the firewall on all
+master and workerndodes.
+
+***********************************************************************************************************************************************************************
+
+To disable the swap memory:
+
+swapoff -a
+************************************************************************************************************************************************************************
+
+                                                           Installation steps:
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Step no 1-3 : requires to be executed on all master and worker nodes as root user.
+
+Step 4: requires to be executed as root user only on master or controlplane node.
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------s
+
+
+Step 1: Letting iptables see bridged traffic
+
+cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
+br_netfilter
+EOF
+
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+EOF
+sudo sysctl --system
+
+step 2: Install docker,start and enable the services.
+
+sudo yum install docker
+
+sudo systemctl start docker.service
+
+sudo systemctl enable docker.service
+
+step 3: Install kubelet,kubeadm and kubectl  
+.
+cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+exclude=kubelet kubeadm kubectl
+EOF
+
+# Set SELinux in permissive mode (effectively disabling it)
+sudo setenforce 0
+sudo sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+
+sudo yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+
+sudo systemctl enable --now kubelet
+
+step 4: Create the kubeadm cluster by executing the below command only on master or control plane node.
+
+kubeadm init --pod-network-cidr=192.168.0.0/16 
+
+
+step 5: To initialized the cluster switch as normal user and run the below commands only on control plane or master node.
+
+mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+step 6: Run the kubeadm join command which has been generated for all the workernode and add them to the cluster.
+
+step 7: Deploy the Pod newtork from the master or control plane node.
+
+
+kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
+kubectl create -f https://docs.projectcalico.org/manifests/custom-resources.yaml
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+This is done. Thank you hope you like this docs.!!!!!!!!!!!!!
+
+
+
+
+
+
+
+
+
+
+
+ 
